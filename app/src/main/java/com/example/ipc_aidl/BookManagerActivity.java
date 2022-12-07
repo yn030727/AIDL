@@ -24,8 +24,15 @@ public class BookManagerActivity extends AppCompatActivity {
             try {
                 //通过IBookManager去调用getBookList方法
                 List<Book> bookList = iBookManager.getBookList();
+                Book newBook = new Book(3,"艺术开发探索");
+                iBookManager.addBook(newBook);
+                Log.d("Ning","add book:"+ newBook);
+                List<Book> newList = iBookManager.getBookList();
+
+
+
                 System.out.println("list type : " + bookList.getClass().getCanonicalName());
-                System.out.println("list : " + bookList.get(0).bookName+" " + bookList.get(0).bookId);
+                System.out.println("list : " + bookList.get(2).bookName+" " + bookList.get(2).bookId);
                 Log.d("Ning", "list type : " + bookList.getClass().getCanonicalName());
                 Log.d("Ning","list : " + bookList.toString());
             } catch (RemoteException e) {
