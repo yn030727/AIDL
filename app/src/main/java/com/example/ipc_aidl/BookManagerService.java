@@ -2,8 +2,11 @@ package com.example.ipc_aidl;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.Parcel;
+import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -20,7 +23,8 @@ public class BookManagerService extends Service {
     //存放书本的集合
     //存放对书感兴趣的人的集合
     private CopyOnWriteArrayList<Book> mBookList = new CopyOnWriteArrayList<Book>();
-    private CopyOnWriteArrayList<IOnNewBookArrivedListener> listenerList = new CopyOnWriteArrayList<IOnNewBookArrivedListener>();
+    /*private CopyOnWriteArrayList<IOnNewBookArrivedListener> listenerList = new CopyOnWriteArrayList<IOnNewBookArrivedListener>();*/
+    private RemoteCallbackList<IOnNewBookArrivedListener> listenerList = new RemoteCallbackList<IOnNewBookArrivedListener>();
 
     //在服务中通过Binder类实现AIDL中定义的接口
     private Binder mBinder = new IBookManager.Stub(){
@@ -40,20 +44,22 @@ public class BookManagerService extends Service {
         //但是还没有被添加到观察者集合当中
         @Override
         public void registerListener(IOnNewBookArrivedListener listener) throws RemoteException {
-            if (!listenerList.contains(listener)) {
+/*            if (!listenerList.contains(listener)) {
                 listenerList.add(listener);
             }else{
                 Log.d("Ning","already exists.");
-            }
+            }*/
+            listenerList.register(listener);
         }
         //当前书友不想观察新书状态了
         @Override
         public void unregisterListener(IOnNewBookArrivedListener listener) throws RemoteException {
-            if(listenerList.contains(listener)){
+            /*if(listenerList.contains(listener)){
                 listenerList.remove(listener);
             }else{
                 Log.d("Ning","not found");
-            }
+            }*/
+            listenerList.unregister(listener);
         }
 
 
@@ -74,6 +80,10 @@ public class BookManagerService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        int check = checkCallingOrSelfPermission("com.example.ipc_aidl.permission.ACCESS_BOOK_SERVICE");
+        if (check == PackageManager.PERMISSION_DENIED){
+            return null;
+        }
         return mBinder;
     }
 
@@ -81,12 +91,22 @@ public class BookManagerService extends Service {
     private void onNewBookArrived(Book book) throws RemoteException{
         //将书添加到书本集合
         mBookList.add(book);
-        for(int i = 0;i < listenerList.size() ; i++){
+        final int N = listenerList.beginBroadcast();
+        for(int i = 0;i < N ; i++){
             //每一个观察者都观察这本新书
-            IOnNewBookArrivedListener listener = listenerList.get(i);
-            Log.d("Ning","onNewBookArrived , notify listener :"+listener);
-            listener.onNewBookArrived(book);
+            /*IOnNewBookArrivedListener listener = listenerList.get(i);*/
+            /*Log.d("Ning","onNewBookArrived , notify listener :"+listener);
+            listener.onNewBookArrived(book);*/
+            IOnNewBookArrivedListener l = listenerList.getBroadcastItem(i);
+            if( l != null){
+                try{
+                    l.onNewBookArrived(book);
+                }catch(RemoteException e){
+                    e.printStackTrace();
+                }
+            }
         }
+        listenerList.finishBroadcast();
     }
 
     //每隔5秒创建一本新书
@@ -111,4 +131,12 @@ public class BookManagerService extends Service {
             }
         }
     }
+
+/*    public boolean onTransact(int code , Parcel data, Parcel reply , int flags)throws RemoteException{
+        int check = checkCallingOrSelfPermission("com.example.ipc_aidl.permission.ACCESS_BOOK_SERVICE");
+        if(check == PackageManager.PERMISSION_DENIED){
+            return false;
+        }
+        return super.onTransact(code,data,reply,flags);
+    }*/
 }
